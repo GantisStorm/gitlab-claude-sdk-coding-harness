@@ -81,7 +81,9 @@ def main() -> None:
         print(f"Error: Failed to initialize agent workspace: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Run the agent (auto_accept=False - manual approval required for CLI)
+    # Run the agent
+    # When run via TUI daemon, CODING_HARNESS_AUTO_ACCEPT env var controls auto-accept
+    # When run directly from CLI, defaults to manual approval (False)
     try:
         asyncio.run(
             run_autonomous_agent(
@@ -91,7 +93,7 @@ def main() -> None:
                 target_branch=args.target_branch,
                 spec_slug=spec_slug,
                 spec_hash=spec_hash,
-                auto_accept=False,
+                auto_accept=os.getenv("CODING_HARNESS_AUTO_ACCEPT", "0") == "1",
             )
         )
     except KeyboardInterrupt:
