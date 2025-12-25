@@ -1,0 +1,30 @@
+generations
+
+# Environment variables (contains secrets)
+.env
+
+# Harness persistent data (daemon state, logs)
+.data/
+
+# HITL checkpoint state (persistent log)
+# Note: .hitl_checkpoint_log.json is intentionally NOT ignored - it's part of the workspace state
+# .claude-agent/*/.hitl_checkpoint_log.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ruff_cache/
+.mypy_cache/
+
+# IDE
+.idea/
+*.swp
+
+# OS
+.DS_Store
+.claude/agents
+.claude/commands
+.claude/plans

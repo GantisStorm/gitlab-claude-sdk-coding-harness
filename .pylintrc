@@ -1,0 +1,17 @@
+[MAIN]
+# Use same Python version as project
+py-version = 3.14
+
+[FORMAT]
+# Match Ruff's line length
+max-line-length = 120
+
+[MESSAGES CONTROL]
+# Disable some overly strict checks
+disable =
+    C0415,  # import-outside-toplevel (we moved imports to top anyway)
+    R0913,  # too-many-arguments (checkpoint functions need many params)
+
+[DESIGN]
+# Allow more arguments for checkpoint creation functions
+max-args = 10

@@ -1,0 +1,7 @@
+claude-agent-sdk>=0.1.18
+textual==6.11.0
+python-dotenv>=1.0.0
+
+# Code quality tools
+ruff>=0.8.0
+pyright>=1.1.0
