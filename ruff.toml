@@ -1,0 +1,51 @@
+# Ruff configuration
+# https://docs.astral.sh/ruff/configuration/
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".claude-agent",
+    "generations",
+]
+
+# Set line length to match common Python standards
+line-length = 120
+
+# Target Python 3.14
+target-version = "py314"
+
+[lint]
+# Enable these rule sets
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "N",   # pep8-naming
+    "UP",  # pyupgrade (upgrade syntax for newer Python)
+    "B",   # flake8-bugbear (likely bugs)
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+
+# Disable specific rules if needed
+ignore = [
+    "E501",  # Line too long (let formatter handle this)
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Use line endings for Unix
+line-ending = "auto"
