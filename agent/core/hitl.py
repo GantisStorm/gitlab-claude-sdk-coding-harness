@@ -181,8 +181,8 @@ def resolve_checkpoint(
     checkpoint.human_decision = decision
     checkpoint.human_notes = notes
     checkpoint.modifications = modifications
-    checkpoint.completed = True
-    checkpoint.completed_at = resolved_at
+    # NOTE: Do NOT set completed=True here. The agent will mark as completed
+    # after acting on the decision (claiming issue, closing issue, etc.)
 
     # Define atomic update function that saves ALL resolution data
     def update_resolution(ckpt_dict: dict) -> None:
@@ -192,8 +192,8 @@ def resolve_checkpoint(
         ckpt_dict["human_decision"] = decision
         ckpt_dict["human_notes"] = notes
         ckpt_dict["modifications"] = modifications
-        ckpt_dict["completed"] = True
-        ckpt_dict["completed_at"] = resolved_at
+        # NOTE: Do NOT set completed=True here. The agent will mark as completed
+        # after acting on the decision (claiming issue, closing issue, etc.)
 
     # Save ALL fields atomically to disk
     _atomic_checkpoint_update(project_dir, spec_slug, spec_hash, checkpoint.checkpoint_id, update_resolution)

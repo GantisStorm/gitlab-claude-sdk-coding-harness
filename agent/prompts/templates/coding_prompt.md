@@ -296,9 +296,16 @@ This contains important guidance, feedback, or context from the human reviewer.
 
    Will provide progress updates as work continues.
    ```
-9. **Mark checkpoint as completed**: Read the checkpoint log, find the checkpoint by ID, set `completed` to true and add `completed_at` timestamp, then write the updated log using the Write tool
-10. Skip to STEP 8 (Implement the Feature) with the selected issue
-11. **Implement with adjusted approach** - Use the modified strategy from human_notes, not the default approach
+9. **Read the issue content (CRITICAL - before implementing):**
+   - Use `mcp__gitlab__get_issue` to read the full issue description
+   - Use `mcp__gitlab__list_issue_notes` to read ALL comments
+   - Look for **Implementation Guide** in description (from enrichment)
+   - Look for **Research Documentation** comment (from enrichment)
+   - Look for **Session Ended** comments (from previous sessions)
+   - This is your roadmap for implementation - don't skip this!
+10. **Mark checkpoint as completed**: Read the checkpoint log, find the checkpoint by ID, set `completed` to true and add `completed_at` timestamp, then write the updated log using the Write tool
+11. Skip to STEP 8 (Implement the Feature) with the selected issue
+12. **Implement with adjusted approach** - Use the Implementation Guide if present, plus any modifications from human_notes
 
 **For `issue_selection` (rejected):**
 1. **Read `human_notes`** - parse why human wants to skip
@@ -933,12 +940,22 @@ ALL AVAILABLE ISSUES ([count] open):
    git show [commit_sha] --name-only
    ```
 
-   **C. Check issue comments for session handoffs:**
-   Use `mcp__gitlab__list_issue_notes` to read comments:
+   **C. Read ALL issue comments (CRITICAL - contains enrichment and session context):**
+   Use `mcp__gitlab__list_issue_notes` to read ALL comments on the issue:
+
+   **Enrichment Comments (from initializer - HIGHEST PRIORITY):**
+   - Look for "## Research Documentation" comment - contains library docs, codebase analysis, integration points
+   - This was added by the initializer during enrichment and contains valuable research you should NOT repeat
+   - Extract: code patterns, file references, API specs, similar implementations
+
+   **Session Handoff Comments (from previous coding sessions):**
    - Look for comments starting with "## Session Ended" (handoff from previous session)
    - Look for "## Progress Update" comments (mid-session updates)
    - Read the "Next Steps" section to understand where to continue
    - Note any warnings or gotchas mentioned in "Notes" section
+
+   **IMPORTANT:** If there are NO enrichment comments but enrichment was approved,
+   the Implementation Guide is in the issue DESCRIPTION (see Step E below).
 
    **D. Sync your local branch with latest commits:**
    ```bash
@@ -955,6 +972,45 @@ ALL AVAILABLE ISSUES ([count] open):
    | % complete | Session Ended comment | Estimate remaining effort |
    | Next steps | Session Ended comment | Know what to do first |
    | Gotchas/blockers | Notes section | Avoid known pitfalls |
+
+   **E. Read the issue DESCRIPTION for Implementation Guide (CRITICAL):**
+   Use `mcp__gitlab__get_issue` to read the full issue description.
+
+   **If the issue was enriched, the description contains a complete Implementation Guide:**
+   ```markdown
+   ## Overview
+   [Expanded requirement with context]
+
+   ## Implementation Guide
+   ### Step 1: [First Component]
+   **Files to modify/create:**
+   - `path/to/file.py` - [what to add/change]
+   **Code pattern to follow:**
+   [code snippet from docs or codebase]
+
+   ### Step 2: [Second Component]
+   ...
+
+   ## Technical Details
+   - Dependencies, API specs, codebase patterns
+
+   ## Acceptance Criteria
+   - [ ] Specific, measurable criteria
+
+   ## Test Plan
+   | Step | Action | Expected Result |
+   ```
+
+   **If you find an Implementation Guide:**
+   - This is your PRIMARY source of truth for implementation
+   - Follow the steps IN ORDER
+   - Use the file paths and code patterns provided
+   - Do NOT re-research what the initializer already researched
+   - Check off Acceptance Criteria as you complete them
+
+   **If there is NO Implementation Guide:**
+   - The issue was not enriched (human rejected enrichment)
+   - Use the basic issue description and your own research
 
 3. **Add "Work Started" comment** using `mcp__gitlab__create_note`:
    ```markdown
@@ -987,10 +1043,24 @@ This signals to any other agents (or humans watching) that this issue is being w
 
 ### STEP 8: IMPLEMENT THE FEATURE
 
-Read the issue description for requirements and test steps, then implement accordingly:
+**PREREQUISITE:** You should have already read the issue in STEP 7 (sections C and E).
+
+**If the issue has an Implementation Guide** (from enrichment):
+- Follow the Implementation Guide steps IN ORDER
+- Use the exact files and code patterns specified
+- The initializer already did the research - don't repeat it
+- Check off Acceptance Criteria as you complete each one
+
+**If the issue has NO Implementation Guide:**
+- Use the basic issue description
+- Do your own research as needed
+
+---
+
+**Implementation Process:**
 
 1. **Follow existing patterns in the codebase:**
-   - Check similar components/files for patterns
+   - Check similar components/files for patterns (or use those from Implementation Guide)
    - Read DEVGUIDE.md in relevant directories
    - Follow project coding standards from CLAUDE.md
 
@@ -1044,12 +1114,17 @@ Read the issue description for requirements and test steps, then implement accor
 
    #### What to Test
 
+   **If the issue has a Test Plan** (from Implementation Guide):
+   - Follow the Test Plan table from the enriched description
+   - Implement tests for each row in the table
+   - The initializer already identified the key test scenarios
+
    **MUST test:**
    - All new functions/methods with logic (not simple getters/setters)
    - All new API endpoints
    - All new data transformations
    - Error handling paths
-   - Edge cases mentioned in issue description
+   - Edge cases mentioned in issue description or Acceptance Criteria
 
    **DON'T test:**
    - Simple pass-through functions

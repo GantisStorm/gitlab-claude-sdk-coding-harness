@@ -320,16 +320,12 @@ class SpecConfig:  # pylint: disable=too-many-instance-attributes
             >>> config = SpecConfig.from_dict(data)
         """
         # Import here to avoid circular dependency
-        from common.utils import generate_spec_hash
+        from common.utils import generate_spec_hash, spec_filename_to_slug
 
         spec_file = Path(data["spec_file"])
 
         # Auto-generate spec_slug if not provided
-        if "spec_slug" in data:
-            spec_slug = data["spec_slug"]
-        else:
-            # Remove extension, lowercase, replace non-alphanumeric with hyphens
-            spec_slug = re.sub(r"[^a-z0-9]+", "-", spec_file.stem.lower()).strip("-")
+        spec_slug = data["spec_slug"] if "spec_slug" in data else spec_filename_to_slug(spec_file)
 
         # Auto-generate spec_hash if not provided
         spec_hash = data["spec_hash"] if "spec_hash" in data else generate_spec_hash(spec_file)
