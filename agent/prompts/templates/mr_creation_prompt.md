@@ -983,6 +983,7 @@ Use `mcp__gitlab__create_merge_request` with:
 - `target_branch`: target branch from `.gitlab_milestone.json` (default: main)
 - `title`: approved title (from checkpoint or modifications)
 - `description`: approved description (from checkpoint or modifications)
+- `milestone_id`: milestone ID from `.gitlab_milestone.json`
 - `remove_source_branch`: true (optional, cleans up after merge)
 
 **Example:**
@@ -993,6 +994,7 @@ mcp__gitlab__create_merge_request(
   target_branch: "main",
   title: "User Authentication and Profile Management",
   description: "[Human-approved description]",
+  milestone_id: 42,
   remove_source_branch: true
 )
 ```
@@ -1045,23 +1047,7 @@ Use Operation 2 (Complete a Checkpoint) from the CHECKPOINT OPERATIONS section:
 
 ---
 
-## STEP 6: CLOSE THE MILESTONE
-
-After creating the merge request, close the milestone using `mcp__gitlab__edit_milestone`.
-
-Use `mcp__gitlab__edit_milestone` with:
-- `project_id` from `.gitlab_milestone.json`
-- `milestone_id` from `.gitlab_milestone.json`
-- `state_event`: "close"
-
-**This signals that:**
-- All work for the milestone is complete
-- The MR has been created
-- No new issues should be added to this milestone
-
----
-
-## STEP 7: UPDATE STATE FILE
+## STEP 6: UPDATE STATE FILE
 
 Update `.claude-agent/{{SPEC_SLUG}}/.gitlab_milestone.json` with completion information:
 
@@ -1104,7 +1090,7 @@ Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` to generate ISO 8601 timestamp
 
 ---
 
-## STEP 8: REPORT COMPLETION
+## STEP 7: REPORT COMPLETION
 
 Provide a comprehensive summary in your final response:
 
