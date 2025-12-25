@@ -704,7 +704,8 @@ Milestone: [milestone_title]",
 ```
 FOR each closed_issue in milestone:
     1. Read issue description for test steps/acceptance criteria
-       - Look for: "Test Steps", "Acceptance Criteria", checkboxes, numbered lists
+       - If enriched, look for: "## Acceptance Criteria" (checkboxes), "## Test Plan" (table)
+       - If not enriched, look for: "Test Steps", checkboxes, numbered lists
        - If none found: Test basic page load and no console errors
 
     2. Navigate to feature location (from issue description or infer from title)
@@ -765,10 +766,27 @@ If milestone has > 20 issues, query in pages:
 3. If results are returned, collect them and increment page number
 4. Repeat until no more results or page > 5 (safety limit: max 100 issues)
 
-**Collect:**
-1. All closed issue titles and numbers
-2. Issue descriptions (brief summaries)
-3. Any significant implementation notes from issue comments
+**Collect from each closed issue:**
+
+1. **Issue title and number** (for "Closes #XX" list)
+
+2. **Issue description** - may contain enriched content from initializer:
+   - Look for "## Overview" section (enriched summary)
+   - Look for "## Implementation Guide" (what was built)
+   - Look for "## Technical Details" (dependencies, API specs)
+   - Look for "## Acceptance Criteria" (what was verified)
+   - If no enrichment sections, use the basic description
+
+3. **Issue comments** - Use `mcp__gitlab__list_issue_notes` for each issue:
+   - Look for "## Research Documentation" (from initializer enrichment)
+   - Look for "## Session Ended" / "## Session Started" (implementation notes)
+   - Look for "## Progress Update" (mid-implementation notes)
+   - Look for "## Work Completed" / closure comments
+   - Extract key decisions, architectural notes, and lessons learned
+
+**Why read all this:** The MR description should capture the full story of what was built,
+how it was built, and what decisions were made. Enrichment and session comments contain
+valuable context that should be summarized in the MR.
 
 **MR Title Format:**
 - Max 72 characters (GitLab recommendation)
@@ -784,6 +802,7 @@ If milestone has > 20 issues, query in pages:
 
 ## Summary
 [1-2 paragraph overview of what this milestone accomplished]
+[If issues were enriched, summarize the overall technical approach from Implementation Guides]
 
 ## Issues Completed
 - Closes #[issue_iid] - [issue title]
@@ -792,16 +811,34 @@ If milestone has > 20 issues, query in pages:
 [... list all closed issues ...]
 
 ## Key Changes
-[List 5-10 high-level changes. If > 10, group related changes.]
+[List 5-10 high-level changes. Sources for this section:]
+- From enriched "## Technical Details" sections: dependencies added, APIs created
+- From "## Session Ended" comments: what was actually implemented
+- From git commit history: major file changes
 - [High-level change 1]
 - [High-level change 2]
 - [High-level change 3]
+
+## Technical Details
+[If issues were enriched, consolidate key technical info here:]
+- **New Dependencies:** [list from enriched Technical Details sections]
+- **New APIs/Endpoints:** [list from enriched API specs]
+- **Architectural Patterns:** [patterns used, from Implementation Guides]
+[If not enriched, omit this section]
 
 ## Testing
 - All features tested with browser automation (Puppeteer)
 - Visual verification completed via screenshots
 - Zero console errors
 - All issue acceptance criteria verified
+[If enriched: "Test Plans from issue descriptions were followed"]
+
+## Implementation Notes
+[Extract from issue comments - Session Ended, Progress Update, Work Completed:]
+- Key decisions made during implementation
+- Challenges encountered and how they were resolved
+- Deviations from original plan (if any)
+[If no significant notes, omit this section]
 
 ## Notes
 [Any important context, architectural decisions, or considerations for reviewers]
@@ -813,7 +850,8 @@ If milestone has > 20 issues, query in pages:
 **Important:**
 - Use "Closes #[issue_iid]" format for each issue - GitLab will auto-link and close them
 - Be thorough - this is the permanent record of the milestone's work
-- Highlight significant changes or decisions
+- Extract valuable context from enrichment and session comments
+- The MR description should tell the complete story of the milestone
 
 ---
 
