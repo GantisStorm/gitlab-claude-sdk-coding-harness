@@ -399,6 +399,7 @@ All modes can be combined. For example, file-only mode + skip MR creation gives 
 - **GitLab Integration** - Automatic milestone creation, issue management, and merge request generation
 - **File-Only Mode** - Optional local JSON-based tracking instead of GitLab (no GitLab account required)
 - **Skip MR Creation** - Option to stop after coding without creating a merge request (keep changes on branch)
+- **Configurable Testing** - Skip Puppeteer, test suite, or regression testing via TUI options
 - **8 HITL Checkpoints** - Human approval gates for project verification, issue breakdown, implementation review, and more
 - **Spec-to-Issues Breakdown** - AI-powered conversion of specifications into actionable GitLab issues
 - **Issue Enrichment** - Optional Context7 and SearxNG integration for researching libraries and best practices
@@ -413,6 +414,7 @@ All modes can be combined. For example, file-only mode + skip MR creation gives 
 - **File Tracking** - Agents track files they modify; only pushes agent-created changes (never user's uncommitted work)
 - **Multi-Session Handoffs** - Detailed handoff comments with commit SHAs for seamless session continuity
 - **Verification Loops** - GitLab API calls with retry logic, issue creation verification, MR existence validation
+- **Security Hooks** - Bash command allowlist validation prevents dangerous operations
 
 ## Prerequisites
 
@@ -629,7 +631,8 @@ For automation or scripting, provide specs as JSON:
 Run without human approval prompts (use with caution):
 
 ```bash
-./start.sh --auto-accept --specs '[...]'
+# In TUI, press 'a' to toggle auto-accept mode for an agent
+# Auto-accept setting is saved per-agent and can be toggled anytime
 ```
 
 ## Usage
@@ -736,8 +739,9 @@ The harness uses a two-tier persistence model with Docker volumes:
 ```
 PROJECT DIRECTORY (bind mount via $HOME:$HOME):
 project/.claude-agent/{spec-slug}-{hash}/    ← LOCAL ONLY, never pushed to GitLab
-├── .workspace_info.json      # Spec config, branch, auto-accept setting
-├── .gitlab_milestone.json    # Milestone ID, issue list, progress, session_files tracking
+├── .workspace_info.json      # Spec config, branch, auto-accept, skip flags
+├── .gitlab_milestone.json    # Milestone ID, issue list, progress (GitLab mode)
+├── .file_milestone.json      # Milestone data (file-only mode)
 ├── .hitl_checkpoint_log.json # All checkpoint history with decisions
 ├── app_spec.txt              # Copy of original specification
 └── logs/                     # Agent execution logs (project-scoped)
@@ -759,7 +763,7 @@ DAEMON STATE (named Docker volume per container):
 | Milestone state | Project `.claude-agent/` | ✅ Yes | Bind mount to host |
 | Agent logs | Project `.claude-agent/logs/` | ✅ Yes | Bind mount to host |
 | Daemon state | Docker volume | ✅ Yes | Volume `{container}-data` |
-| Auto-accept pref | Project `.workspace_info.json` | ✅ Yes | Bind mount to host |
+| Agent options | Project `.workspace_info.json` | ✅ Yes | Auto-accept, skip flags |
 
 **Docker volumes (per-container):**
 ```bash
@@ -807,6 +811,9 @@ This harness achieves similar observability through GitLab's native issue tracki
 4. **Agent Options** - Configure behavior:
    - **File-only mode** - Use local JSON files instead of GitLab for tracking
    - **Skip MR creation** - Stop after coding without creating a merge request
+   - **Skip Puppeteer** - Disable browser automation testing
+   - **Skip test suite** - Disable test suite execution
+   - **Skip regression testing** - Disable regression spot-checks
 5. **Advanced Options** - Configure iterations and other settings
 6. **Agent Execution** - Watch the agent work with HITL checkpoints for your approval
 
@@ -951,7 +958,7 @@ WHAT HAPPENED:
 
 ### Auto-Accept Mode
 
-When auto-accept is enabled (`--auto-accept` or toggle with `A` key), checkpoints are automatically approved with intelligent defaults:
+When auto-accept is enabled (toggle with `a` key in TUI), checkpoints are automatically approved with intelligent defaults:
 
 | Checkpoint | Auto-Accept Behavior |
 |------------|---------------------|
@@ -960,7 +967,7 @@ When auto-accept is enabled (`--auto-accept` or toggle with `A` key), checkpoint
 | `issue_selection` | Uses the recommended issue from context |
 | Others | Standard automatic approval |
 
-**Per-Agent Toggle:** Each agent independently tracks its auto-accept preference. Press `A` in the TUI to toggle for the selected agent. The `[AUTO]` indicator shows when enabled.
+**Per-Agent Toggle:** Each agent independently tracks its auto-accept preference in `.workspace_info.json`. Press `a` in the TUI to toggle for the selected agent. The status bar shows `AUTO` or `HITL` to indicate the current mode. Changes take effect immediately on the next checkpoint.
 
 ### Quality Assurance & Guardrails
 
@@ -1013,11 +1020,20 @@ These aren't suggestions—they're circuit breakers. Without them, a harness run
 
 The Claude Agent SDK enables fine-grained control over what agents can do:
 - **Directory isolation** - Agents can only operate within the project directory
-- **Command filtering** - Dangerous bash commands (rm -rf, kill self, etc.) are blocked via hooks
+- **Command filtering** - Dangerous bash commands are blocked via pre-tool-use hooks
 - **Tool allowlists** - Only approved tools (read, write, bash, MCP) are available
 - **Sandboxed execution** - Agents run in controlled subprocess environments
 
-Anthropic's quickstart repository includes a security hook that validates bash commands before execution—a pattern worth studying for production harnesses.
+**Bash Security Hook (`agent/core/hooks/security.py`):**
+
+The harness implements a comprehensive bash command security hook using an allowlist approach:
+- **Allowed commands** - Only specific commands permitted: `ls`, `cat`, `head`, `tail`, `grep`, `cp`, `mkdir`, `chmod`, `npm`, `node`, `git`, `ps`, `lsof`, `sleep`, `pkill`, `cd`, `gh`, `echo`
+- **Sensitive command validation** - Extra checks for `pkill` (only dev processes), `chmod` (only +x), and script execution
+- **Command injection prevention** - Blocks command substitution (`$(...)`, backticks), subshells, and dangerous metacharacters
+- **Path traversal prevention** - Validates script paths resolve within the current directory
+- **Argument sanitization** - Limits argument count/length, blocks shell metacharacters in arguments
+
+Commands not in the allowlist are blocked with an explanatory error message.
 
 ## Architecture
 
@@ -1029,8 +1045,8 @@ Three levels of detail: [Overview](#overview) (L1) → Component (L2) → [Runti
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              TUI (tui/)                                     │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐  │
-│  │  Repo   │→│  Spec   │→│ Branch  │→│ Quality │→│ Options │→│  Running  │  │
-│  │ Screen  │ │ Screen  │ │ Screen  │ │ Screen  │ │ Screen  │ │ (logs+ckpt│  │
+│  │  Repo   │→│  Spec   │→│ Branch  │→│ Agent   │→│Advanced │→│  Running  │  │
+│  │ Screen  │ │ Screen  │ │ Screen  │ │ Options │ │ Options │ │ (logs+ckpt│  │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └───────────┘  │
 └───────────────────────────────────┬─────────────────────────────────────────┘
                                     │ daemon socket
@@ -1097,9 +1113,14 @@ INITIALIZER                    CODING (per issue)              MR CREATION
 
 | Directory | Purpose |
 |-----------|---------|
-| `agent/` | Core agent logic, prompts, HITL system, Claude API client |
+| `agent/` | Core agent logic, prompts, HITL system, Claude SDK client |
+| `agent/core/` | Orchestrator, session runner, checkpoint handlers, security hooks |
+| `agent/core/hooks/` | SDK hook system for bash command security validation |
+| `agent/daemon/` | Background daemon for agent process management |
+| `agent/prompts/` | Prompt templates for initializer, coding, and MR agents |
 | `tui/` | Textual UI screens, terminal widget, event handling |
-| `common/` | Shared types, utilities, configuration |
+| `tui/screens/` | Modal screens: repo/spec/branch selection, agent options, checkpoints |
+| `common/` | Shared types, utilities, exceptions, unified state management |
 | `.claude/` | Claude Code configuration (settings, skills, agents, commands) |
 
 ## Development
@@ -1119,9 +1140,15 @@ coding-harness/
 │   ├── cli.py             # CLI entry point (python -m agent.cli)
 │   ├── core/              # Core agent logic
 │   │   ├── __init__.py
-│   │   ├── orchestrator.py  # Main agent loop
-│   │   ├── client.py        # Claude SDK client
-│   │   └── hitl.py          # HITL checkpoints
+│   │   ├── orchestrator.py       # Main agent loop
+│   │   ├── client.py             # Claude SDK client configuration
+│   │   ├── hitl.py               # HITL checkpoint file operations
+│   │   ├── checkpoint_handlers.py # Strategy pattern for checkpoint types
+│   │   ├── session_runner.py     # Individual session execution
+│   │   ├── output.py             # Output formatting utilities
+│   │   └── hooks/                # SDK hook system
+│   │       ├── __init__.py       # Hook registration
+│   │       └── security.py       # Bash command security validation
 │   ├── daemon/            # Background daemon
 │   │   ├── __init__.py
 │   │   ├── __main__.py      # Module entry (python -m agent.daemon)
@@ -1140,10 +1167,15 @@ coding-harness/
 │   ├── log_terminal.py    # Log file tailing widget
 │   ├── main.py            # Entry point
 │   └── screens/           # TUI screen components
+│       ├── agent_options_screen.py  # Agent behavior options
+│       ├── checkpoint_screen.py     # HITL checkpoint review
+│       └── ...                      # Other screens
 ├── common/
-│   ├── __init__.py
-│   ├── types.py         # Shared type definitions
-│   └── utils.py         # Utility functions
+│   ├── __init__.py        # Package exports
+│   ├── types.py           # Shared type definitions
+│   ├── utils.py           # Utility functions
+│   ├── exceptions.py      # Exception hierarchy
+│   └── state.py           # Unified state management
 ├── .claude/             # Claude Code configuration
 ├── .env.example         # Environment template
 ├── Dockerfile           # Docker image definition
@@ -1209,7 +1241,7 @@ A: Default is `claude-opus-4-5-20251101`. You can use other models by setting `C
 A: Yes! Use JSON mode with multiple spec objects in the array.
 
 **Q: How do I skip human approval?**
-A: Use `--auto-accept` flag, but this removes human oversight - use carefully.
+A: Press `a` in the TUI to toggle auto-accept mode for the selected agent. This removes human oversight - use carefully.
 
 **Q: Can I use a different coding assistant (not Claude)?**
 A: The architecture is portable but not implemented. During the live stream, community members confirmed OpenCode + Ollama works for local models (Qwen 3, Kimi K2). Porting requires replacing Claude Agent SDK calls with equivalent SDK (Codex SDK, OpenCode SDK, AMP SDK). The prompts and artifacts pattern transfers directly.
